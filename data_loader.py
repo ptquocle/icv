@@ -17,19 +17,19 @@ class MIMICCXRDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        
-        #path: files/pXX/pXXXXXXXX/sXXXXXXXX/XXXX.jpg
+
+        # Path: files/pXX/pXXXXXXXX/sXXXXXXXX/XXXX.jpg
         subject_id_str = f"p{row['subject_id']}"
         folder_group = subject_id_str[:3]
         study_id_str = f"s{row['study_id']}"
         dicom_id = f"{row['dicom_id']}.jpg"
-        
+
         img_path = os.path.join(self.image_dir, folder_group, subject_id_str, study_id_str, dicom_id)
 
         try:
             image = Image.open(img_path).convert('RGB')
         except Exception:
-            #for missing/corrupt images
+            # For missing/corrupt images
             image = Image.new('RGB', (config.IMAGE_SIZE, config.IMAGE_SIZE))
 
         if self.transform:
@@ -40,8 +40,8 @@ class MIMICCXRDataset(Dataset):
 
 def get_dataloaders():
     print("Loading pre-split datasets...")
-    
-    #read from the files created by split_files.py, otherwise ubda screams segmentation fault!!!
+
+    # Read from the files created by split_files.py
     train_df = pd.read_csv('mimic_train.csv')
     val_df = pd.read_csv('mimic_val.csv')
 
@@ -55,7 +55,7 @@ def get_dataloaders():
     print(f"Dataset ready: {len(train_df)} train, {len(val_df)} val.")
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    
+
     train_transform = transforms.Compose([
         transforms.Resize(config.IMAGE_SIZE),
         transforms.RandomResizedCrop(config.IMAGE_SIZE, scale=(0.8, 1.0)),
@@ -74,19 +74,21 @@ def get_dataloaders():
     val_dataset = MIMICCXRDataset(val_df, transform=val_transform)
 
     train_loader = DataLoader(
-        train_dataset, 
-        batch_size=config.BATCH_SIZE, 
-        shuffle=True, 
-        num_workers=8, 
-        pin_memory=True
+        train_dataset,
+        batch_size=config.BATCH_SIZE,
+        shuffle=True,
+        num_workers=4,             
+        pin_memory=False,           
+        persistent_workers=True,   
+        prefetch_factor=2       
     )
-    
+
     val_loader = DataLoader(
-        val_dataset, 
-        batch_size=config.BATCH_SIZE, 
-        shuffle=False, 
-        num_workers=8, 
-        pin_memory=True
+        val_dataset,
+        batch_size=config.BATCH_SIZE,
+        shuffle=False,
+        num_workers=0,             
+        pin_memory=False
     )
 
     return train_loader, val_loader
