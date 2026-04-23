@@ -1,31 +1,52 @@
-# MIMIC-CXR training pipeline
+# MIMMIC-CXR
+This repository contains a pipeline for multi-label classification of thoracic pathologies using the **MIMIC-CXR** dataset, for URIS progress report.
 
-This repository contains a training pipeline for the **MIMIC-CXR** dataset using a DenseNet121 architecture. It is to run on the UBDA cluster only allowing me to run on Tesla P100!!!
+---
 
-## Structure
+## Project structure
+```text
+├── checkpoints/          # Saved model weights (.pth)
+├── data/                 # Dataset directory 
+├── config.py             # Hyperparameters
+├── data_loader.py        # Data loader
+├── model.py              # DenseNet
+├── train.py              # Main training script 
+├── evaluate.py           # Per-class performance eval
+├── visualize.py          # Script to generate loss/AUROC plots
+├── submit_job.sh         # PBS script for training
+├── evaluate.sh           # PBS script for evaluation
+├── utils.py              # Helpers
+├── create_master.py      # Merges raw metadata into one
+└── split_files.py        # Generates `mimic_train.csv` and `mimic_val.csv`
+```
 
-| File | Description |
-| :--- | :--- |
-| `train.py` | Main training loop. |
-| `model.py` | DenseNet121 architecture with a custom 14-class multi-label head. |
-| `data_loader.py` | DataLoader using pre-split CSV files. |
-| `config.py` | Hyperparameters and path configs. |
-| `split_files.py` | Pre-processing script to split data without RAM overhead. |
-| `submit_job.sh` | PBS script for requesting 8 CPUs, 64GB RAM, and 1 GPU. |
-| `utils.py` | Helper functions. |
+## Getting started
 
-## Dataset
-To avoid memory crashes on login nodes, the dataset is split into chunks:
-1. `create_master.py` merges raw MIMIC metadata into a single master file.
-2. `split_files.py` generates `mimic_train.csv` and `mimic_val.csv`.
+### 1. Environment Setup
+```bash
+conda create -n icv python=3.7
+conda activate icv
+pip install torch torchvision tqdm pandas scikit-learn matplotlib
+```
 
-## Config
-- **Batch Size:** 32
-- **Num Workers:** 8
-- **Input Size:** 224x224
-- **Epochs:** 10
+### 2. Training on the cluster
+Prepare data:
+```bash
+python create_master.py
+python split_files.py
+```
 
-## Usage
-1. **Prepare data:** `python create_master.py | python split_files.py`
-2. **Submit job:** `qsub submit_job.sh`
-3. **Monitor:** `tail -f my_training_log.txt`
+To submit a training job:
+
+```bash
+qsub submit_job.sh
+```
+
+### 3. Evaluation
+Once training is complete, run:
+
+```bash
+qsub evaluate.sh
+```
+
+This generates `class_performance.csv`, containing the AUROC score for each of the 14 pathologies.
