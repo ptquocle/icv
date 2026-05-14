@@ -1,7 +1,8 @@
-*.csv
-*.gz
-files/
+.venv/
 __pycache__/
-*.txt
-*.pth
-.cache/
+data/
+logs/
+results/
+checkpoints/
+.txt
+reqs.txt
