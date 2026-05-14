@@ -44,8 +44,22 @@ def get_dataloaders():
     # Read from the files created by split_files.py
     train_df = pd.read_csv('mimic_train.csv')
     val_df = pd.read_csv('mimic_val.csv')
+    test_df = pd.read_csv('mimic-cxr-2.1.0-test-set-labeled.csv')
+    metadata_df = pd.read_csv('mimic-cxr-2.0.0-metadata.csv.gz')
 
-    for sub_df in [train_df, val_df]:
+    test_df = pd.merge(
+            test_df,
+            metadata_df[['study_id', 'subject_id', 'dicom_id']],
+            on='study_id',
+            how='inner'
+            )
+    for sub_df in [train_df, val_df, test_df]:
+        sub_df.columns = [c.replace('_', ' ') if c.replace('_', ' ') in config.CLASSES else c for c in sub_df.columns]
+        for cls in config.CLASSES:
+            if cls not in sub_df.columns:
+                print(f"Warning: '{cls}' is missing in the dataset. Filling with 0.0")
+                sub_df[cls] = 0.0
+
         sub_df[config.CLASSES] = sub_df[config.CLASSES].fillna(0.0)
         if config.UNCERTAINTY_STRATEGY == "u-ones":
             sub_df[config.CLASSES] = sub_df[config.CLASSES].replace(-1.0, 1.0)
@@ -63,7 +77,7 @@ def get_dataloaders():
         transforms.ToTensor(),
         normalize])
 
-    val_transform = transforms.Compose([
+    val_test_transform = transforms.Compose([
         transforms.Resize(config.IMAGE_SIZE),
         transforms.CenterCrop(config.IMAGE_SIZE),
         transforms.ToTensor(),
@@ -71,8 +85,8 @@ def get_dataloaders():
         ])
 
     train_dataset = MIMICCXRDataset(train_df, transform=train_transform)
-    val_dataset = MIMICCXRDataset(val_df, transform=val_transform)
-
+    val_dataset = MIMICCXRDataset(val_df, transform=val_test_transform)
+    test_dataset = MIMICCXRDataset(test_df, transform=val_test_transform)
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.BATCH_SIZE,
@@ -91,4 +105,6 @@ def get_dataloaders():
         pin_memory=False
     )
 
-    return train_loader, val_loader
+    test_loader = DataLoader(test_dataset, batch_size=config.BATCH_SIZE, shuffle=False, num_workers=0)
+
+    return train_loader, val_loader, test_loader
